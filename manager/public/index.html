@@ -1,2 +1,74 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>沿昭知识库管理器</title><link rel="stylesheet" href="manager.css"></head><body><header><div><strong>沿昭知识库管理器</strong><span id="saveState">已读取本地内容</span></div><nav><a href="/" target="_blank">预览网站</a><button id="saveButton">保存</button><button class="publish" id="publishButton">一键发布</button></nav></header><main><aside><div class="panel-title"><b>目录</b><button id="addSection">＋</button></div><div id="sections"></div></aside><section class="articles"><div class="panel-title"><b id="articleHeading">文章</b><button id="addArticle">＋ 新建</button></div><div id="articles"></div></section><section class="editor"><div id="emptyEditor" class="empty">选择一篇文章开始编辑，或点击“新建”。</div><form id="editorForm" hidden><label>文章标题<input id="title" required></label><label>所属目录<select id="sectionId"></select></label><label>摘要<textarea id="summary" rows="2"></textarea></label><label>正文（支持Markdown）<textarea id="body" class="body" rows="20" placeholder="# 一级标题&#10;&#10;在这里输入正文……"></textarea></label><div class="attachment"><label>添加附件<input type="file" id="fileInput"></label><span id="uploadState">支持PDF、Word、Excel、图片，单个不超过25MB</span></div><button type="button" class="danger" id="deleteArticle">删除这篇文章</button></form></section></main><div class="toast" id="toast"></div><script src="manager.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>沿昭知识库管理器</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <header>
+    <div><strong>沿昭知识库管理器</strong><span id="saveState">已读取本地内容</span></div>
+    <nav>
+      <button class="ai-nav" id="aiSettingsButton">✦ AI 设置</button>
+      <a href="/" target="_blank">预览网站</a>
+      <button id="saveButton">保存</button>
+      <button class="publish" id="publishButton">一键发布</button>
+    </nav>
+  </header>
+  <main>
+    <aside>
+      <div class="panel-title"><b>目录</b><button id="addSection">＋</button></div>
+      <div id="sections"></div>
+    </aside>
+    <section class="articles">
+      <div class="panel-title"><b id="articleHeading">文章</b><button id="addArticle">＋ 新建</button></div>
+      <div id="articles"></div>
+    </section>
+    <section class="editor">
+      <div id="emptyEditor" class="empty">选择一篇文章开始编辑，或点击“新建”。</div>
+      <form id="editorForm" hidden>
+        <div class="ai-toolbar">
+          <div><b>DeepSeek AI 助手</b><span id="aiStatus">正在检查配置……</span></div>
+          <button type="button" id="aiOrganizeButton">✦ AI 整理文章</button>
+        </div>
+        <label>文章标题<input id="title" required></label>
+        <label>所属目录<select id="sectionId"></select></label>
+        <label>摘要<textarea id="summary" rows="2"></textarea></label>
+        <label>正文（支持Markdown）<textarea id="body" class="body" rows="20" placeholder="可以先粘贴原始笔记，再点击“AI 整理文章”……"></textarea></label>
+        <div class="attachment">
+          <label>添加附件<input type="file" id="fileInput"></label>
+          <span id="uploadState">支持PDF、Word、Excel、图片，单个不超过25MB</span>
+        </div>
+        <button type="button" class="danger" id="deleteArticle">删除这篇文章</button>
+      </form>
+    </section>
+  </main>
 
+  <dialog id="aiSettingsDialog">
+    <div class="dialog-head"><div><b>DeepSeek AI 设置</b><span>密钥仅保存在这台电脑，不会上传到 GitHub</span></div><button class="icon-button" data-close="aiSettingsDialog" aria-label="关闭">×</button></div>
+    <div class="dialog-body">
+      <label>API 密钥<input id="aiApiKey" type="password" autocomplete="off" placeholder="粘贴以 sk- 开头的密钥"></label>
+      <p class="hint" id="aiKeyHint">尚未保存密钥</p>
+      <label>模型<select id="aiModel"><option value="deepseek-flash">DeepSeek Flash（推荐，便宜快速）</option></select></label>
+      <div class="safety-note"><b>费用保护</b><span>单次最多读取 50,000 字，最多输出 2,000 Token；AI 结果不会自动发布。</span></div>
+    </div>
+    <div class="dialog-actions"><button class="secondary" data-close="aiSettingsDialog">取消</button><button class="primary" id="saveAiSettings">保存设置</button></div>
+  </dialog>
+
+  <dialog id="aiPreviewDialog" class="wide-dialog">
+    <div class="dialog-head"><div><b>AI 整理建议</b><span>确认无误后再应用到编辑器</span></div><button class="icon-button" data-close="aiPreviewDialog" aria-label="关闭">×</button></div>
+    <div class="dialog-body preview-grid">
+      <section><small>推荐标题</small><strong id="aiPreviewTitle"></strong></section>
+      <section><small>推荐目录</small><strong id="aiPreviewSection"></strong></section>
+      <section class="full"><small>推荐摘要</small><p id="aiPreviewSummary"></p></section>
+      <section class="full"><small>整理后的正文</small><pre id="aiPreviewBody"></pre></section>
+      <p class="usage full" id="aiUsage"></p>
+    </div>
+    <div class="dialog-actions"><button class="secondary" data-close="aiPreviewDialog">取消</button><button class="primary" id="applyAiSuggestion">应用到编辑器</button></div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+  <script src="manager.js"></script>
+</body>
+</html>

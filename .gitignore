@@ -1,3 +1,4 @@
 .manager-state/
 *.log
-
+manager/local-config.json
+manager/local-config.json.tmp
