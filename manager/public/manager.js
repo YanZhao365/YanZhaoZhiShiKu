@@ -4,6 +4,11 @@ let currentArticle = null;
 let dirty = false;
 let aiConfig = { configured: false, model: "deepseek-flash" };
 let aiSuggestion = null;
+let aiChatHistory = [];
+try {
+  const savedChat = JSON.parse(localStorage.getItem("yanzhao-private-ai-chat") || "[]");
+  if (Array.isArray(savedChat)) aiChatHistory = savedChat.slice(-30);
+} catch { aiChatHistory = []; }
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (character) => ({
@@ -294,6 +299,115 @@ $("#applyAiSuggestion").onclick = () => {
   $("#aiPreviewDialog").close();
   toast("AI 建议已应用，请检查后保存");
 };
+
+function saveChatHistory() {
+  localStorage.setItem("yanzhao-private-ai-chat", JSON.stringify(aiChatHistory.slice(-30)));
+}
+
+function renderAiChat(pending = false) {
+  const messages = $("#aiChatMessages");
+  messages.replaceChildren();
+  if (!aiChatHistory.length && !pending) {
+    const welcome = document.createElement("div");
+    welcome.className = "chat-welcome";
+    welcome.textContent = "这是只属于你的本地 AI 助手。它可以结合知识库回答问题、解释学习内容和起草文章，但无权直接修改或发布网站。";
+    messages.append(welcome);
+  }
+  aiChatHistory.forEach((message) => {
+    const row = document.createElement("div");
+    row.className = `chat-message ${message.role}`;
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
+    bubble.textContent = message.content;
+    row.append(bubble);
+    messages.append(row);
+  });
+  if (pending) {
+    const row = document.createElement("div");
+    row.className = "chat-message assistant pending";
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
+    bubble.textContent = "DeepSeek 正在思考……";
+    row.append(bubble);
+    messages.append(row);
+  }
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function currentDraftForChat() {
+  if (!currentArticle || $("#editorForm").hidden) return null;
+  return {
+    title: $("#title").value.slice(0, 200),
+    summary: $("#summary").value.slice(0, 1000),
+    body: $("#body").value.slice(0, 30000),
+  };
+}
+
+$("#aiChatButton").onclick = () => {
+  if (!aiConfig.configured) {
+    toast("请先配置 DeepSeek API 密钥");
+    $("#aiSettingsButton").click();
+    return;
+  }
+  renderAiChat();
+  $("#aiChatDialog").showModal();
+  setTimeout(() => $("#aiChatInput").focus(), 50);
+};
+
+$("#clearAiChat").onclick = () => {
+  if (aiChatHistory.length && !confirm("确定清空本机保存的 AI 对话吗？")) return;
+  aiChatHistory = [];
+  saveChatHistory();
+  renderAiChat();
+  $("#aiChatState").textContent = "对话已清空 · AI 无权直接修改或发布网站";
+};
+
+async function sendAiChat() {
+  const input = $("#aiChatInput");
+  const content = input.value.trim();
+  if (!content) return;
+  if (content.length > 4000) return toast("单次提问不能超过 4,000 字");
+  const button = $("#sendAiChat");
+  aiChatHistory.push({ role: "user", content });
+  aiChatHistory = aiChatHistory.slice(-30);
+  saveChatHistory();
+  input.value = "";
+  button.disabled = true;
+  $("#aiChatState").textContent = "正在连接 DeepSeek……";
+  renderAiChat(true);
+  try {
+    const result = await requestJson("/api/ai/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messages: aiChatHistory.slice(-12),
+        mode: $("#aiChatMode").value,
+        currentDraft: currentDraftForChat(),
+      }),
+    });
+    aiChatHistory.push({ role: "assistant", content: result.message });
+    aiChatHistory = aiChatHistory.slice(-30);
+    saveChatHistory();
+    const tokens = result.usage?.total_tokens;
+    $("#aiChatState").textContent = tokens ? `本次使用 ${tokens.toLocaleString("zh-CN")} Token · 内容仅保存在本机` : "回答完成 · 内容仅保存在本机";
+    renderAiChat();
+  } catch (error) {
+    $("#aiChatState").textContent = "回答失败，请检查网络或余额";
+    renderAiChat();
+    toast(`AI 对话失败：${error.message}`, 6000);
+  } finally {
+    button.disabled = false;
+    input.focus();
+  }
+}
+
+$("#sendAiChat").onclick = sendAiChat;
+$("#aiChatInput").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    if (!$("#sendAiChat").disabled) sendAiChat();
+  }
+});
 
 window.addEventListener("beforeunload", (event) => {
   if (dirty) { event.preventDefault(); event.returnValue = ""; }
