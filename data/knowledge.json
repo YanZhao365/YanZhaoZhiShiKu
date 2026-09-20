@@ -8,17 +8,65 @@
     "stage": "大一"
   },
   "sections": [
-    { "id": "freshman", "title": "大一成长地图", "description": "从入学适应到学年复盘，建立自己的大学节奏。" },
-    { "id": "statistics", "title": "应用统计学专业学习", "description": "培养方案、课程路线、统计方法与专业书单。" },
-    { "id": "math", "title": "数学基础", "description": "高等数学、线性代数、概率统计与数学建模。" },
-    { "id": "coding", "title": "编程与数据分析", "description": "Python、R、SQL、Excel与数据可视化。" },
-    { "id": "projects", "title": "竞赛 · 科研 · 项目", "description": "记录竞赛准备、科研入门和个人项目作品。" },
-    { "id": "career", "title": "升学与职业规划", "description": "探索考研、保研、实习与数据相关职业。" },
-    { "id": "resources", "title": "工具与资源库", "description": "沉淀数据集、软件、论文检索和常用链接。" },
-    { "id": "college", "title": "长江师范学院", "description": "校园学习、课程通知与生活记录。" },
-    { "id": "reading", "title": "阅读与思考", "description": "读书笔记、观点整理与长期思考。" },
-    { "id": "portfolio", "title": "个人作品集", "description": "展示完成的课程作业、项目和作品。" }
+    {
+      "id": "freshman",
+      "title": "大一成长地图",
+      "description": "从入学适应到学年复盘，建立自己的大学节奏。"
+    },
+    {
+      "id": "statistics",
+      "title": "应用统计学专业学习",
+      "description": "培养方案、课程路线、统计方法与专业书单。"
+    },
+    {
+      "id": "math",
+      "title": "数学基础",
+      "description": "高等数学、线性代数、概率统计与数学建模。"
+    },
+    {
+      "id": "coding",
+      "title": "编程与数据分析",
+      "description": "Python、R、SQL、Excel与数据可视化。"
+    },
+    {
+      "id": "projects",
+      "title": "竞赛 · 科研 · 项目",
+      "description": "记录竞赛准备、科研入门和个人项目作品。"
+    },
+    {
+      "id": "career",
+      "title": "升学与职业规划",
+      "description": "探索考研、保研、实习与数据相关职业。"
+    },
+    {
+      "id": "resources",
+      "title": "工具与资源库",
+      "description": "沉淀数据集、软件、论文检索和常用链接。"
+    },
+    {
+      "id": "college",
+      "title": "长江师范学院",
+      "description": "校园学习、课程通知与生活记录。"
+    },
+    {
+      "id": "reading",
+      "title": "阅读与思考",
+      "description": "读书笔记、观点整理与长期思考。"
+    },
+    {
+      "id": "portfolio",
+      "title": "个人作品集",
+      "description": "展示完成的课程作业、项目和作品。"
+    }
   ],
-  "articles": []
+  "articles": [
+    {
+      "id": "article-mu9m5ku3-30mu",
+      "sectionId": "freshman",
+      "title": "我的知识库使用说明",
+      "summary": "记录知识库的使用方法和维护规则。",
+      "body": "# 我的知识库使用说明\n\n这是沿昭知识库的第一篇文章。\n\n## 使用方法\n\n- 在电脑管理器中整理目录和文章\n- 点击“保存”将内容保存在电脑\n- 点击“一键发布”更新线上网站",
+      "updatedAt": "2026/9/20"
+    }
+  ]
 }
-
