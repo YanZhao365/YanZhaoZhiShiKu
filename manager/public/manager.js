@@ -232,6 +232,18 @@ document.querySelectorAll("[data-close]").forEach((button) => {
   button.onclick = () => $(`#${button.dataset.close}`).close();
 });
 
+$("#generateAgentSecret").onclick = async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const secret = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  $("#edgeOneAgentSecret").value = secret;
+  try {
+    await navigator.clipboard.writeText(secret);
+    toast("管理密钥已生成并复制，请粘贴到 EdgeOne 的 YANZHAO_AGENT_SECRET");
+  } catch {
+    toast("管理密钥已生成，请手动复制输入框中的内容", 5000);
+  }
+};
+
 $("#saveAiSettings").onclick = async () => {
   const button = $("#saveAiSettings");
   try {
