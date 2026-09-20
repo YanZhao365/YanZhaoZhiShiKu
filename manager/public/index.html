@@ -31,7 +31,10 @@
       <form id="editorForm" hidden>
         <div class="ai-toolbar">
           <div><b>DeepSeek AI 助手</b><span id="aiStatus">正在检查配置……</span></div>
-          <button type="button" id="aiOrganizeButton">✦ AI 整理文章</button>
+          <div class="ai-toolbar-actions">
+            <button type="button" class="research-button" id="aiResearchButton">⌕ 联网研究文章</button>
+            <button type="button" id="aiOrganizeButton">✦ AI 整理文章</button>
+          </div>
         </div>
         <label>文章标题<input id="title" required></label>
         <label>所属目录<select id="sectionId"></select></label>
@@ -52,6 +55,13 @@
       <label>API 密钥<input id="aiApiKey" type="password" autocomplete="off" placeholder="粘贴以 sk- 开头的密钥"></label>
       <p class="hint" id="aiKeyHint">尚未保存密钥</p>
       <label>模型<select id="aiModel"><option value="deepseek-flash">DeepSeek Flash（推荐，便宜快速）</option></select></label>
+      <div class="settings-divider">
+        <b>EdgeOne 联网搜索</b>
+        <span>搜索密钥只保存在本机；访客端不会获得密钥或搜索入口</span>
+      </div>
+      <label>搜索 Agent 地址<input id="edgeOneSearchUrl" type="url" autocomplete="off" placeholder="https://yanzhao365.top/knowledge-search"></label>
+      <label>管理员搜索密钥<input id="edgeOneAgentSecret" type="password" autocomplete="off" placeholder="与 EdgeOne 环境变量 YANZHAO_AGENT_SECRET 相同"></label>
+      <p class="hint" id="edgeOneSearchHint">尚未配置联网搜索</p>
       <div class="safety-note"><b>费用保护</b><span>单次最多读取 50,000 字，最多输出 2,000 Token；AI 结果不会自动发布。</span></div>
     </div>
     <div class="dialog-actions"><button class="secondary" data-close="aiSettingsDialog">取消</button><button class="primary" id="saveAiSettings">保存设置</button></div>
@@ -64,6 +74,7 @@
       <section><small>推荐目录</small><strong id="aiPreviewSection"></strong></section>
       <section class="full"><small>推荐摘要</small><p id="aiPreviewSummary"></p></section>
       <section class="full"><small>整理后的正文</small><pre id="aiPreviewBody"></pre></section>
+      <section class="full" id="aiPreviewSourcesSection" hidden><small>本次联网来源</small><div id="aiPreviewSources" class="source-list"></div></section>
       <p class="usage full" id="aiUsage"></p>
     </div>
     <div class="dialog-actions"><button class="secondary" data-close="aiPreviewDialog">取消</button><button class="primary" id="applyAiSuggestion">应用到编辑器</button></div>
@@ -82,7 +93,10 @@
           <option value="deep">深度思考（较慢）</option>
         </select>
       </label>
-      <button type="button" class="secondary" id="clearAiChat">清空对话</button>
+      <div class="chat-options">
+        <label class="search-toggle"><input id="aiChatWebSearch" type="checkbox"> 联网搜索后回答</label>
+        <button type="button" class="secondary" id="clearAiChat">清空对话</button>
+      </div>
     </div>
     <div id="aiChatMessages" class="chat-messages" aria-live="polite"></div>
     <div class="chat-compose">

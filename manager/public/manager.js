@@ -2,7 +2,7 @@ let data;
 let currentSection = null;
 let currentArticle = null;
 let dirty = false;
-let aiConfig = { configured: false, model: "deepseek-flash" };
+let aiConfig = { configured: false, searchConfigured: false, model: "deepseek-flash", edgeOneSearchUrl: "https://yanzhao365.top/knowledge-search" };
 let aiSuggestion = null;
 let aiChatHistory = [];
 try {
@@ -145,9 +145,11 @@ async function loadAiConfig() {
 }
 
 function updateAiStatus() {
-  $("#aiStatus").textContent = aiConfig.configured ? "DeepSeek 已配置 · 发布前需人工确认" : "尚未配置 API 密钥";
+  $("#aiStatus").textContent = aiConfig.configured ? `DeepSeek 已配置${aiConfig.searchConfigured ? " · EdgeOne 可联网" : ""} · 发布前需人工确认` : "尚未配置 API 密钥";
   $("#aiKeyHint").textContent = aiConfig.configured ? `已保存本地密钥（${aiConfig.maskedKey || "已隐藏"}），留空可保持不变` : "尚未保存密钥";
   $("#aiModel").value = aiConfig.model || "deepseek-flash";
+  $("#edgeOneSearchUrl").value = aiConfig.edgeOneSearchUrl || "https://yanzhao365.top/knowledge-search";
+  $("#edgeOneSearchHint").textContent = aiConfig.searchConfigured ? `联网搜索已配置（管理密钥 ${aiConfig.maskedAgentSecret || "已隐藏"}），留空可保持不变` : "尚未配置：需要 EdgeOne 的 WSA_API_KEY 和管理员搜索密钥";
 }
 
 $("#addSection").onclick = () => {
@@ -221,6 +223,7 @@ $("#publishButton").onclick = async () => {
 
 $("#aiSettingsButton").onclick = () => {
   $("#aiApiKey").value = "";
+  $("#edgeOneAgentSecret").value = "";
   updateAiStatus();
   $("#aiSettingsDialog").showModal();
 };
@@ -237,11 +240,11 @@ $("#saveAiSettings").onclick = async () => {
     aiConfig = await requestJson("/api/ai-config", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ apiKey: $("#aiApiKey").value.trim(), model: $("#aiModel").value }),
+      body: JSON.stringify({ apiKey: $("#aiApiKey").value.trim(), model: $("#aiModel").value, edgeOneSearchUrl: $("#edgeOneSearchUrl").value.trim(), agentSecret: $("#edgeOneAgentSecret").value.trim() }),
     });
     updateAiStatus();
     $("#aiSettingsDialog").close();
-    toast("DeepSeek 设置已保存在本机");
+    toast("AI 设置已保存在本机");
   } catch (error) {
     toast(error.message, 5000);
   } finally {
@@ -275,10 +278,13 @@ $("#aiOrganizeButton").onclick = async () => {
       }),
     });
     aiSuggestion = result.suggestion;
+    $("#aiPreviewDialog .dialog-head b").textContent = "AI 整理建议";
     $("#aiPreviewTitle").textContent = aiSuggestion.title;
     $("#aiPreviewSummary").textContent = aiSuggestion.summary;
     $("#aiPreviewBody").textContent = aiSuggestion.body;
     $("#aiPreviewSection").textContent = data.sections.find((section) => section.id === aiSuggestion.recommendedSectionId)?.title || "保持当前目录";
+    $("#aiPreviewSourcesSection").hidden = true;
+    $("#aiPreviewSources").replaceChildren();
     $("#aiUsage").textContent = result.usage?.total_tokens ? `本次共使用 ${result.usage.total_tokens.toLocaleString("zh-CN")} Token` : "用量以 DeepSeek 控制台账单为准";
     $("#aiPreviewDialog").showModal();
   } catch (error) {
@@ -286,6 +292,67 @@ $("#aiOrganizeButton").onclick = async () => {
   } finally {
     button.disabled = false;
     button.textContent = "✦ AI 整理文章";
+  }
+};
+
+function renderResearchSources(sources = []) {
+  const container = $("#aiPreviewSources");
+  container.replaceChildren();
+  sources.forEach((source, index) => {
+    const row = document.createElement("div");
+    const link = document.createElement("a");
+    link.href = source.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = `${index + 1}. ${source.title}`;
+    const meta = document.createElement("small");
+    meta.textContent = [source.site, source.date].filter(Boolean).join(" · ");
+    row.append(link, meta);
+    container.append(row);
+  });
+  $("#aiPreviewSourcesSection").hidden = !sources.length;
+}
+
+$("#aiResearchButton").onclick = async () => {
+  if (!currentArticle) return toast("请先选择一篇文章");
+  if (!aiConfig.configured || !aiConfig.searchConfigured) {
+    toast("请先在“AI 设置”中配置 EdgeOne 联网搜索", 5000);
+    $("#aiSettingsButton").click();
+    return;
+  }
+  const suggestedQuery = $("#title").value.trim() || $("#summary").value.trim();
+  const query = prompt("请输入要联网研究的主题。AI 会先搜索资料，再生成带来源的文章建议。", suggestedQuery);
+  if (!query?.trim()) return;
+  const button = $("#aiResearchButton");
+  try {
+    button.disabled = true;
+    button.textContent = "正在联网研究……";
+    const result = await requestJson("/api/ai/research", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        query: query.trim(),
+        title: $("#title").value,
+        summary: $("#summary").value,
+        body: $("#body").value,
+        sectionId: $("#sectionId").value,
+        sections: data.sections.map(({ id, title, description }) => ({ id, title, description })),
+      }),
+    });
+    aiSuggestion = result.suggestion;
+    $("#aiPreviewDialog .dialog-head b").textContent = "AI 联网研究建议";
+    $("#aiPreviewTitle").textContent = aiSuggestion.title;
+    $("#aiPreviewSummary").textContent = aiSuggestion.summary;
+    $("#aiPreviewBody").textContent = aiSuggestion.body;
+    $("#aiPreviewSection").textContent = data.sections.find((section) => section.id === aiSuggestion.recommendedSectionId)?.title || "保持当前目录";
+    renderResearchSources(result.sources);
+    $("#aiUsage").textContent = result.usage?.total_tokens ? `本次 DeepSeek 共使用 ${result.usage.total_tokens.toLocaleString("zh-CN")} Token；联网搜索按腾讯云 WSA 规则计费` : "联网搜索按腾讯云 WSA 规则计费";
+    $("#aiPreviewDialog").showModal();
+  } catch (error) {
+    toast(`联网研究失败：${error.message}`, 7000);
+  } finally {
+    button.disabled = false;
+    button.textContent = "⌕ 联网研究文章";
   }
 };
 
@@ -367,13 +434,19 @@ async function sendAiChat() {
   const content = input.value.trim();
   if (!content) return;
   if (content.length > 4000) return toast("单次提问不能超过 4,000 字");
+  const useWebSearch = $("#aiChatWebSearch").checked;
+  if (useWebSearch && !aiConfig.searchConfigured) {
+    toast("请先配置 EdgeOne 联网搜索", 5000);
+    $("#aiSettingsButton").click();
+    return;
+  }
   const button = $("#sendAiChat");
   aiChatHistory.push({ role: "user", content });
   aiChatHistory = aiChatHistory.slice(-30);
   saveChatHistory();
   input.value = "";
   button.disabled = true;
-  $("#aiChatState").textContent = "正在连接 DeepSeek……";
+  $("#aiChatState").textContent = useWebSearch ? "正在通过 EdgeOne 搜索互联网……" : "正在连接 DeepSeek……";
   renderAiChat(true);
   try {
     const result = await requestJson("/api/ai/chat", {
@@ -382,6 +455,7 @@ async function sendAiChat() {
       body: JSON.stringify({
         messages: aiChatHistory.slice(-12),
         mode: $("#aiChatMode").value,
+        useWebSearch,
         currentDraft: currentDraftForChat(),
       }),
     });
@@ -389,7 +463,8 @@ async function sendAiChat() {
     aiChatHistory = aiChatHistory.slice(-30);
     saveChatHistory();
     const tokens = result.usage?.total_tokens;
-    $("#aiChatState").textContent = tokens ? `本次使用 ${tokens.toLocaleString("zh-CN")} Token · 内容仅保存在本机` : "回答完成 · 内容仅保存在本机";
+    const searched = result.sources?.length ? ` · 已参考 ${result.sources.length} 条联网结果` : "";
+    $("#aiChatState").textContent = tokens ? `本次使用 ${tokens.toLocaleString("zh-CN")} Token${searched} · 对话仅保存在本机` : `回答完成${searched} · 对话仅保存在本机`;
     renderAiChat();
   } catch (error) {
     $("#aiChatState").textContent = "回答失败，请检查网络或余额";
