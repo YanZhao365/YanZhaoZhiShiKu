@@ -325,6 +325,51 @@ function renderResearchSources(sources = []) {
   $("#aiPreviewSourcesSection").hidden = !sources.length;
 }
 
+$("#aiBookImportButton").onclick = async () => {
+  if (!currentArticle) return toast("请先选择或新建一篇文章");
+  if (!aiConfig.configured || !aiConfig.searchConfigured) {
+    toast("请先在“AI 设置”中配置 DeepSeek 和联网搜索", 5000);
+    $("#aiSettingsButton").click();
+    return;
+  }
+  const currentTitle = $("#title").value.trim();
+  const suggestedQuery = currentTitle && currentTitle !== "新文章" ? currentTitle : "";
+  const query = prompt("请输入 ISBN（最准确），或者输入“书名 + 作者”。系统只生成待确认草稿，不会自动保存或发布。", suggestedQuery);
+  if (!query?.trim()) return;
+  const button = $("#aiBookImportButton");
+  try {
+    button.disabled = true;
+    button.textContent = "正在查询书籍……";
+    const result = await requestJson("/api/ai/import-book", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        query: query.trim(),
+        title: $("#title").value,
+        summary: $("#summary").value,
+        body: $("#body").value,
+        sectionId: $("#sectionId").value,
+        sections: data.sections.map(({ id, title, description }) => ({ id, title, description })),
+      }),
+    });
+    aiSuggestion = result.suggestion;
+    $("#aiPreviewDialog .dialog-head b").textContent = "AI 书籍导入草稿";
+    $("#aiPreviewTitle").textContent = aiSuggestion.title;
+    $("#aiPreviewSummary").textContent = aiSuggestion.summary;
+    $("#aiPreviewBody").textContent = aiSuggestion.body;
+    $("#aiPreviewSection").textContent = data.sections.find((section) => section.id === aiSuggestion.recommendedSectionId)?.title || "保持当前目录";
+    renderResearchSources(result.sources);
+    const tokens = result.usage?.total_tokens ? `DeepSeek 使用 ${result.usage.total_tokens.toLocaleString("zh-CN")} Token；` : "";
+    $("#aiUsage").textContent = `${tokens}匹配 ${Number(result.bookCandidates) || 0} 条专业图书记录；Tavily 基础搜索使用 ${Number(result.searchCredits) || 1} Credit；草稿不会自动保存或发布`;
+    $("#aiPreviewDialog").showModal();
+  } catch (error) {
+    toast(`书籍导入失败：${error.message}`, 7000);
+  } finally {
+    button.disabled = false;
+    button.textContent = "▣ 导入书籍";
+  }
+};
+
 $("#aiResearchButton").onclick = async () => {
   if (!currentArticle) return toast("请先选择一篇文章");
   if (!aiConfig.configured || !aiConfig.searchConfigured) {
