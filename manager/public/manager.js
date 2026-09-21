@@ -149,7 +149,7 @@ function updateAiStatus() {
   $("#aiKeyHint").textContent = aiConfig.configured ? `已保存本地密钥（${aiConfig.maskedKey || "已隐藏"}），留空可保持不变` : "尚未保存密钥";
   $("#aiModel").value = aiConfig.model || "deepseek-flash";
   $("#edgeOneSearchUrl").value = aiConfig.edgeOneSearchUrl || "https://yanzhao365.top/knowledge-search";
-  $("#edgeOneSearchHint").textContent = aiConfig.searchConfigured ? `联网搜索已配置（管理密钥 ${aiConfig.maskedAgentSecret || "已隐藏"}），留空可保持不变` : "尚未配置：需要 EdgeOne 的 WSA_API_KEY 和管理员搜索密钥";
+  $("#edgeOneSearchHint").textContent = aiConfig.searchConfigured ? `联网搜索已配置（管理密钥 ${aiConfig.maskedAgentSecret || "已隐藏"}），留空可保持不变` : "尚未配置：需要 EdgeOne 的 TAVILY_API_KEY 和管理员搜索密钥";
 }
 
 $("#addSection").onclick = () => {
@@ -358,7 +358,7 @@ $("#aiResearchButton").onclick = async () => {
     $("#aiPreviewBody").textContent = aiSuggestion.body;
     $("#aiPreviewSection").textContent = data.sections.find((section) => section.id === aiSuggestion.recommendedSectionId)?.title || "保持当前目录";
     renderResearchSources(result.sources);
-    $("#aiUsage").textContent = result.usage?.total_tokens ? `本次 DeepSeek 共使用 ${result.usage.total_tokens.toLocaleString("zh-CN")} Token；联网搜索按腾讯云 WSA 规则计费` : "联网搜索按腾讯云 WSA 规则计费";
+    $("#aiUsage").textContent = result.usage?.total_tokens ? `本次 DeepSeek 共使用 ${result.usage.total_tokens.toLocaleString("zh-CN")} Token；Tavily 基础搜索使用免费月度额度` : "Tavily 基础搜索使用免费月度额度";
     $("#aiPreviewDialog").showModal();
   } catch (error) {
     toast(`联网研究失败：${error.message}`, 7000);
