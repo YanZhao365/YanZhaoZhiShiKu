@@ -55,7 +55,7 @@ async function searchWithEdgeOne(query,maxResults=6){
   const timeout=setTimeout(()=>controller.abort(),60000);
   let response;
   try{
-    response=await fetch(searchUrl,{method:"POST",headers:{"content-type":"application/json","x-yanzhao-agent-secret":config.agentSecret,"makers-conversation-id":`conv_${randomUUID().replaceAll("-","")}`},body:JSON.stringify({query:String(query||"").trim().slice(0,300),maxResults:Math.min(Math.max(Number(maxResults)||6,1),8)}),signal:controller.signal});
+    response=await fetch(searchUrl,{method:"POST",headers:{"content-type":"application/json","x-yanzhao-agent-secret":config.agentSecret,"makers-conversation-id":`conv_${randomUUID().replaceAll("-","").slice(0,24)}`},body:JSON.stringify({query:String(query||"").trim().slice(0,300),maxResults:Math.min(Math.max(Number(maxResults)||6,1),8)}),signal:controller.signal});
   }catch(error){
     if(error.name==="AbortError")throw new Error("EdgeOne 联网搜索超时，请稍后重试");
     throw new Error("无法连接 EdgeOne 联网搜索，请检查部署和搜索设置");

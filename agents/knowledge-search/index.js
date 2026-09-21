@@ -12,11 +12,21 @@ export async function onRequest(context) {
   if (context.request.method !== "POST") return json({ ok: false, error: "仅支持 POST 请求" }, 405);
 
   const expectedSecret = String(context.env.YANZHAO_AGENT_SECRET || "");
-  const suppliedSecret = String(context.request.headers.get("x-yanzhao-agent-secret") || "");
+  const requestHeaders = context.request.headers || {};
+  const objectHeader = Object.entries(requestHeaders).find(([name]) => name.toLowerCase() === "x-yanzhao-agent-secret")?.[1];
+  const suppliedSecret = String(
+    typeof requestHeaders.get === "function"
+      ? requestHeaders.get("x-yanzhao-agent-secret")
+      : objectHeader || ""
+  );
   if (!expectedSecret || suppliedSecret !== expectedSecret) return json({ ok: false, error: "未授权" }, 401);
 
   let input;
-  try { input = await context.request.json(); }
+  try {
+    if (typeof context.request.json === "function") input = await context.request.json();
+    else if (typeof context.request.body === "string") input = JSON.parse(context.request.body);
+    else input = context.request.body || {};
+  }
   catch { return json({ ok: false, error: "请求内容不是有效 JSON" }, 400); }
 
   const query = String(input.query || "").trim().slice(0, 300);
