@@ -39,6 +39,15 @@ function publicAiConfig(config){
 function cleanJsonReply(content){
   return String(content||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"");
 }
+function parseJsonReply(content){
+  const cleaned=cleanJsonReply(content);
+  if(!cleaned)return null;
+  const first=cleaned.indexOf("{");
+  const last=cleaned.lastIndexOf("}");
+  const candidates=[cleaned,first>=0&&last>first?cleaned.slice(first,last+1):""].filter(Boolean);
+  for(const candidate of [...new Set(candidates)]){try{return JSON.parse(candidate)}catch{}}
+  return null;
+}
 function normalizedSearchUrl(value){
   const raw=String(value||"").trim().replace(/\/+$/,"");
   if(!raw)return "https://yanzhao365.top/knowledge-search";
@@ -131,9 +140,8 @@ async function organizeWithDeepSeek(value){
     const known={401:"DeepSeek API Key 无效，请在“AI 设置”中重新填写",402:"DeepSeek 账户余额不足，请充值后重试",429:"DeepSeek 请求过于频繁，请稍后重试"};
     throw new Error(known[response.status]||String(result.error?.message||`DeepSeek 请求失败（${response.status}）`));
   }
-  let suggestion;
-  try{suggestion=JSON.parse(cleanJsonReply(result.choices?.[0]?.message?.content))}
-  catch{throw new Error("DeepSeek 返回内容无法解析，请重试")}
+  const suggestion=parseJsonReply(result.choices?.[0]?.message?.content);
+  if(!suggestion)throw new Error("DeepSeek 返回内容无法解析，请重试");
   const validSectionIds=new Set(sections.map(item=>item.id));
   const title=String(suggestion.title||"").trim().slice(0,120);
   const summary=String(suggestion.summary||"").trim().slice(0,500);
@@ -177,9 +185,8 @@ async function researchArticleWithDeepSeek(value){
   }finally{clearTimeout(timeout)}
   const result=await response.json().catch(()=>({}));
   if(!response.ok)throw apiError(response.status,result);
-  let suggestion;
-  try{suggestion=JSON.parse(cleanJsonReply(result.choices?.[0]?.message?.content))}
-  catch{throw new Error("DeepSeek 返回内容无法解析，请重试")}
+  const suggestion=parseJsonReply(result.choices?.[0]?.message?.content);
+  if(!suggestion)throw new Error("DeepSeek 返回内容无法解析，请重试");
   const validSectionIds=new Set(sections.map(item=>item.id));
   const title=String(suggestion.title||"").trim().slice(0,120);
   const summary=String(suggestion.summary||"").trim().slice(0,500);
@@ -204,43 +211,55 @@ async function importBookWithDeepSeek(value){
     date:"",
   }));
   const sources=[...openLibrarySources,...lookup.results].filter((source,index,array)=>array.findIndex(item=>item.href===source.href)===index).slice(0,10);
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),120000);
-  let response;
-  try{
-    response=await fetch("https://api.deepseek.com/chat/completions",{
-      method:"POST",
-      headers:{"content-type":"application/json","authorization":`Bearer ${config.apiKey}`},
-      body:JSON.stringify({
-        model:deepSeekModel,
-        thinking:{type:"enabled"},
-        reasoning_effort:"high",
-        messages:[
-          {role:"system",content:"你是沿昭个人知识库的图书资料编辑。请根据 Open Library 候选记录与联网资料，生成一篇中文 Markdown 图书档案草稿。优先使用与用户输入 ISBN 完全匹配的记录；仅有书名时要结合作者与出版社判断，不能确定具体版本时必须明确标注。不得编造作者、出版社、出版时间、ISBN、页数、目录、评价或情节；不同来源冲突时必须说明。不得复制受版权保护书籍的长篇正文，只能做事实性介绍、简短概括和阅读提示。正文应尽量包含：封面（仅当提供了 coverUrl）、基本信息、内容概览、主题与价值、阅读提示、个人笔记占位区、参考来源；关键网络事实使用 Markdown 链接标注来源。只返回合法 JSON：{\"title\":\"\",\"summary\":\"\",\"body\":\"\",\"recommendedSectionId\":\"\"}。"},
-          {role:"user",content:JSON.stringify({bookQuery:query,availableSections:sections,currentSectionId:String(value.sectionId||""),currentDraft:{title:String(value.title||"").slice(0,200),summary:String(value.summary||"").slice(0,1000),body:String(value.body||"").slice(0,20000)},openLibraryCandidates:lookup.books,webSearchResults:lookup.results})}
-        ],
-        response_format:{type:"json_object"},
-        temperature:0.1,
-        max_tokens:4500
-      }),
-      signal:controller.signal
-    });
-  }catch(error){
-    if(error.name==="AbortError")throw new Error("DeepSeek 生成书籍草稿超时，请稍后重试");
-    throw new Error("无法连接 DeepSeek，请检查网络后重试");
-  }finally{clearTimeout(timeout)}
-  const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw apiError(response.status,result);
-  let suggestion;
-  try{suggestion=JSON.parse(cleanJsonReply(result.choices?.[0]?.message?.content))}
-  catch{throw new Error("DeepSeek 返回的书籍草稿无法解析，请重试")}
+  const systemPrompt="你是沿昭个人知识库的图书资料编辑。请根据 Open Library 候选记录与联网资料，生成一篇中文 Markdown 图书档案草稿。优先使用与用户输入 ISBN 完全匹配的记录；仅有书名时要结合作者与出版社判断，不能确定具体版本时必须明确标注。不得编造作者、出版社、出版时间、ISBN、页数、目录、评价或情节；不同来源冲突时必须说明。不得复制受版权保护书籍的长篇正文，只能做事实性介绍、简短概括和阅读提示。正文应尽量包含：封面（仅当提供了 coverUrl）、基本信息、内容概览、主题与价值、阅读提示、个人笔记占位区、参考来源；关键网络事实使用 Markdown 链接标注来源。必须只输出一个合法 JSON 对象，不要使用代码围栏或添加解释。JSON 示例：{\"title\":\"书名：图书档案\",\"summary\":\"简短摘要\",\"body\":\"Markdown 正文\",\"recommendedSectionId\":\"目录ID\"}。";
+  const userPayload={bookQuery:query,availableSections:sections,currentSectionId:String(value.sectionId||""),currentDraft:{title:String(value.title||"").slice(0,200),summary:String(value.summary||"").slice(0,1000),body:String(value.body||"").slice(0,20000)},openLibraryCandidates:lookup.books,webSearchResults:lookup.results};
+  const requestDraft=async(retryInstruction="")=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),120000);
+    let response;
+    try{
+      response=await fetch("https://api.deepseek.com/chat/completions",{
+        method:"POST",
+        headers:{"content-type":"application/json","authorization":`Bearer ${config.apiKey}`},
+        body:JSON.stringify({
+          model:deepSeekModel,
+          thinking:{type:"disabled"},
+          messages:[
+            {role:"system",content:`${systemPrompt}${retryInstruction?`\n\n${retryInstruction}`:""}`},
+            {role:"user",content:JSON.stringify(userPayload)}
+          ],
+          response_format:{type:"json_object"},
+          temperature:0.1,
+          max_tokens:6000
+        }),
+        signal:controller.signal
+      });
+    }catch(error){
+      if(error.name==="AbortError")throw new Error("DeepSeek 生成书籍草稿超时，请稍后重试");
+      throw new Error("无法连接 DeepSeek，请检查网络后重试");
+    }finally{clearTimeout(timeout)}
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw apiError(response.status,result);
+    return result;
+  };
+  const totalUsage={};
+  const addUsage=(usage)=>Object.entries(usage||{}).forEach(([key,amount])=>{if(typeof amount==="number")totalUsage[key]=(totalUsage[key]||0)+amount});
+  let result=await requestDraft();
+  addUsage(result.usage);
+  let suggestion=parseJsonReply(result.choices?.[0]?.message?.content);
+  if(!suggestion){
+    result=await requestDraft("上一次响应为空或不是可解析的 JSON。请重新生成，确保四个字段都是 JSON 字符串，并正确转义正文中的换行和引号。");
+    addUsage(result.usage);
+    suggestion=parseJsonReply(result.choices?.[0]?.message?.content);
+  }
+  if(!suggestion)throw new Error("DeepSeek 两次返回的书籍草稿均无法解析，请稍后重试");
   const validSectionIds=new Set(sections.map(item=>item.id));
   const title=String(suggestion.title||"").trim().slice(0,120);
   const summary=String(suggestion.summary||"").trim().slice(0,500);
   const organizedBody=String(suggestion.body||"").trim();
   if(!title||!summary||!organizedBody)throw new Error("DeepSeek 返回的书籍草稿不完整，请重试");
   const recommended=String(suggestion.recommendedSectionId||"");
-  return {ok:true,suggestion:{title,summary,body:organizedBody,recommendedSectionId:validSectionIds.has(recommended)?recommended:String(value.sectionId||"")},sources,bookCandidates:lookup.books.length,searchCredits:lookup.credits,usage:result.usage||null};
+  return {ok:true,suggestion:{title,summary,body:organizedBody,recommendedSectionId:validSectionIds.has(recommended)?recommended:String(value.sectionId||"")},sources,bookCandidates:lookup.books.length,searchCredits:lookup.credits,usage:Object.keys(totalUsage).length?totalUsage:null};
 }
 function apiError(status,result){
   const known={401:"DeepSeek API Key 无效，请在“AI 设置”中重新填写",402:"DeepSeek 账户余额不足，请充值后重试",429:"DeepSeek 请求过于频繁，请稍后重试"};
